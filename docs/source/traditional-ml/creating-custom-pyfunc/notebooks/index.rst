@@ -177,13 +177,12 @@ clicking the respective links to each notebook in this guide:
 
 .. raw:: html
 
-    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/traditional-ml/creating-custom-pyfunc/notebooks/introduction.ipynb" class="notebook-download-btn">Download the Introduction notebook</a><br>
-    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/traditional-ml/creating-custom-pyfunc/notebooks/basic-pyfunc.ipynb" class="notebook-download-btn">Download the Basic Pyfunc notebook</a><br>
-    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/traditional-ml/creating-custom-pyfunc/notebooks/override-predict.ipynb" class="notebook-download-btn">Download the Predict Override notebook</a><br>
+    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/traditional-ml/creating-custom-pyfunc/notebooks/introduction.ipynb" class="notebook-download-btn">Download the Introduction notebook</a><br/>
+    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/traditional-ml/creating-custom-pyfunc/notebooks/basic-pyfunc.ipynb" class="notebook-download-btn">Download the Basic Pyfunc notebook</a><br/>
+    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/traditional-ml/creating-custom-pyfunc/notebooks/override-predict.ipynb" class="notebook-download-btn">Download the Predict Override notebook</a><br/>
 
 .. note::
     In order to run the notebooks, please ensure that you either have a local MLflow Tracking Server started or modify the
     ``mlflow.set_tracking_uri()`` values to point to a running instance of the MLflow Tracking Server. In order to interact with
     the MLflow UI, ensure that you are either running the UI server locally or have a configured deployed MLflow UI server that
     you are able to access.
-

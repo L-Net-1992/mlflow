@@ -64,6 +64,9 @@ MLflow is currently maintained by the following core members with significant co
 - [Corey Zumar](https://github.com/dbczumar)
 - [Ben Wilson](https://github.com/BenWilson2)
 - [Serena Ruan](https://github.com/serena-ruan)
+- [Yuki Watanabe](https://github.com/B-Step62)
+- [Daniel Lok](https://github.com/daniellok-db)
+- [Tomu Hirata](https://github.com/TomeHirata)
 - [Gabriel Fu](https://github.com/gabrielfu)
 
 ## Contribution process
@@ -189,16 +192,11 @@ We follow [Google's Python Style Guide](https://google.github.io/styleguide/pygu
 for writing docstrings. Make sure your docstrings adhere to this style
 guide.
 
-The process for converting to a standard docstring format style is  
-ongoing. If you see a docstring in the code base that doesn't adhere
-to this formatting style and you'd like to contribute a fix, feel free
-to open a PR to correct the docstring formatting.
-
 ###### Code Style
 
-We use [pylint](https://pypi.org/project/pylint/),
-[black](https://black.readthedocs.io/en/stable/the_black_code_style/index.html),
-and [ruff](https://github.com/astral-sh/ruff) in our CI via
+We use [prettier](https://prettier.io/),
+[blacken-docs](https://pypi.org/project/blacken-docs/), [ruff](https://github.com/astral-sh/ruff), and
+a number of custom lint checking scripts in our CI via
 pre-commit Git hooks. If your code passes the CI checks, it's
 formatted correctly.
 
@@ -207,7 +205,7 @@ match those in the mlflow CI, refer to [lint-requirements.txt](https://github.co
 You can compare these versions with your local using pip:
 
 ```bash
-pip show pylint
+pip show ruff
 ```
 
 ## Setting up the repository
@@ -340,7 +338,7 @@ git config --global user.email yourname@example.com
 ```
 
 For convenience, we provide a pre-commit git hook that validates that
-commits are signed-off and runs `black --check` and `pylint` to ensure the
+commits are signed-off and runs `ruff check --fix` and `ruff format` to ensure the
 code will pass the lint check for python. You can enable it by running:
 
 ```bash
@@ -477,13 +475,6 @@ If contributing to MLflow's R APIs, install
 [R](https://cloud.r-project.org/) and make sure that you have satisfied
 all the [Environment Setup and Python configuration](#environment-setup-and-python-configuration).
 
-For changes to R documentation, also install
-[pandoc](https://pandoc.org/installing.html) 2.2.1 or above, verifying
-the version of your installation via `pandoc --version`. If using Mac
-OSX, note that the homebrew installation of pandoc may be out of date -
-you can find newer pandoc versions at
-<https://github.com/jgm/pandoc/releases>.
-
 The `mlflow/R/mlflow` directory contains R wrappers for the Projects,
 Tracking and Models components. These wrappers depend on the Python
 package, so first install the Python package in a conda environment:
@@ -599,11 +590,12 @@ disable this behavior, decorate your test function with
 Verify that the unit tests & linter pass before submitting a pull
 request by running:
 
-We use [Black](https://black.readthedocs.io/en/stable/) to ensure a
+We use [ruff](https://docs.astral.sh/ruff/) to ensure a
 consistent code format. You can auto-format your code by running:
 
 ```bash
-black .
+ruff format .
+ruff check .
 ```
 
 Then, verify that the unit tests & linter pass before submitting a pull
@@ -611,14 +603,14 @@ request by running:
 
 ```bash
 pre-commit run --all-files
-pytest tests --quiet --requires-ssh --ignore-flavors \
+pytest tests --quiet --requires-ssh --ignore-flavors --serve-wheel \
   --ignore=tests/examples --ignore=tests/recipes --ignore=tests/evaluate
 ```
 
 We use [pytest](https://docs.pytest.org/en/latest/contents.html) to run
 Python tests. You can run tests for one or more test directories or
 files via `pytest [file_or_dir] ... [file_or_dir]`. For example, to run
-all pyfunc tests, you can run:
+all pytest tests, you can run:
 
 ```bash
 pytest tests/pyfunc
@@ -663,7 +655,7 @@ below.
 
 ##### Building Protobuf Files
 
-To build protobuf files, simply run `generate-protos.sh`. The required
+To build protobuf files, simply run `python ./dev/generate_protos.py`. The required
 `protoc` version is `3.19.4`. You can find the URL of a
 system-appropriate installation of `protoc` at
 <https://github.com/protocolbuffers/protobuf/releases/tag/v3.19.4>, e.g.
@@ -816,7 +808,8 @@ Finally, before filing a pull request, verify all Python tests pass.
 
 ### Building a Distributable Artifact
 
-[Install Node Modules](#install-node-modules), then run the following:
+If you would like to build a fully functional version of MLflow from your local branch for testing or a local patch fix, first
+[install the Node Modules](#install-node-modules), then run the following:
 
 Generate JS files in `mlflow/server/js/build`:
 
@@ -825,16 +818,30 @@ cd mlflow/server/js
 yarn build
 ```
 
-Build a pip-installable wheel in `dist/`:
+Build a pip-installable wheel and a compressed code archive in `dist/`:
 
 ```bash
 cd -
-python setup.py bdist_wheel
+python -m build
 ```
+
+### TOML formatting
+
+We use [taplo](https://taplo.tamasfe.dev/) to enforce consistent TOML formatting. You can install it by following the instructions [here](https://taplo.tamasfe.dev/cli/introduction.html).
 
 ### Writing Docs
 
 First, install dependencies for building docs as described in [Environment Setup and Python configuration](#environment-setup-and-python-configuration).
+
+Building documentation requires [Pandoc](https://pandoc.org/index.html). It should have already been
+installed if you used the automated env setup script
+([dev-env-setup.sh](https://github.com/mlflow/mlflow/blob/master/dev/dev-env-setup.sh)),
+but if you are manually installing dependencies, please follow [the official instruction](https://pandoc.org/installing.html).
+
+Also, check the version of your installation via `pandoc --version` and ensure it is 2.2.1 or above.
+If you are using Mac OSX, be aware that the Homebrew installation of Pandoc may be outdated. If you are using Linux,
+you should use a deb installer or install from the source, instead of running `apt` / `apt-get` commands. Pandoc package available on official
+repositories is an older version and contains several bugs. You can find newer versions at <https://github.com/jgm/pandoc/releases>.
 
 To generate a live preview of Python & other rst documentation, run the
 following snippet. Note that R & Java API docs must be regenerated
@@ -881,6 +888,13 @@ cd docs
 make html
 ```
 
+Generate only the main .rst based documentation:
+
+```bash
+cd docs
+make rsthtml
+```
+
 If changing existing Python APIs or adding new APIs under existing
 modules, ensure that references to the modified APIs are updated in
 existing docs under `docs/source`. Note that the Python doc generation
@@ -891,6 +905,13 @@ If adding a new public Python module, create a corresponding doc file
 for the module under `docs/source/python_api` - [see
 here](https://github.com/mlflow/mlflow/blob/v0.9.1/docs/source/python_api/mlflow.tracking.rst#mlflowtracking)
 for an example.
+
+> Note: If you are experiencing issues with rstcheck warning of failures in files that you did not modify, try:
+
+```bash
+cd docs
+make clean; make html
+```
 
 ### Sign your work
 
@@ -943,6 +964,8 @@ Then add a line to every git commit message:
 Use your real name (sorry, no pseudonyms or anonymous contributions).
 You can sign your commit automatically with `git commit -s` after you
 set your `user.name` and `user.email` git configs.
+
+> NOTE: Failing to sign your commits will result in an inability to merge your PR!
 
 ## Code of Conduct
 

@@ -4,12 +4,12 @@ import os
 import pathlib
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 
 import pydantic
 import yaml
-from packaging import version
-from pydantic import ValidationError, root_validator, validator
+from packaging.version import Version
+from pydantic import ConfigDict, Field, ValidationError, root_validator, validator
 from pydantic.json import pydantic_encoder
 
 from mlflow.exceptions import MlflowException
@@ -20,15 +20,18 @@ from mlflow.gateway.constants import (
     MLFLOW_QUERY_SUFFIX,
 )
 from mlflow.gateway.utils import (
+    check_configuration_deprecated_fields,
     check_configuration_route_name_collisions,
     is_valid_ai21labs_model,
     is_valid_endpoint_name,
     is_valid_mosiacml_chat_model,
 )
+from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 
 _logger = logging.getLogger(__name__)
 
-IS_PYDANTIC_V2 = version.parse(pydantic.version.VERSION) >= version.parse("2.0")
+if IS_PYDANTIC_V2_OR_NEWER:
+    from pydantic import SerializeAsAny
 
 
 class Provider(str, Enum):
@@ -41,13 +44,24 @@ class Provider(str, Enum):
     HUGGINGFACE_TEXT_GENERATION_INFERENCE = "huggingface-text-generation-inference"
     PALM = "palm"
     BEDROCK = "bedrock"
+    AMAZON_BEDROCK = "amazon-bedrock"  # an alias for bedrock
     # Note: The following providers are only supported on Databricks
     DATABRICKS_MODEL_SERVING = "databricks-model-serving"
     DATABRICKS = "databricks"
+    MISTRAL = "mistral"
+    TOGETHERAI = "togetherai"
 
     @classmethod
     def values(cls):
         return {p.value for p in cls}
+
+
+class TogetherAIConfig(ConfigModel):
+    togetherai_api_key: str
+
+    @validator("togetherai_api_key", pre=True)
+    def validate_togetherai_api_key(cls, value):
+        return _resolve_api_key_from_input(value)
 
 
 class RouteType(str, Enum):
@@ -59,7 +73,6 @@ class RouteType(str, Enum):
 class CohereConfig(ConfigModel):
     cohere_api_key: str
 
-    # pylint: disable=no-self-argument
     @validator("cohere_api_key", pre=True)
     def validate_cohere_api_key(cls, value):
         return _resolve_api_key_from_input(value)
@@ -68,7 +81,6 @@ class CohereConfig(ConfigModel):
 class AI21LabsConfig(ConfigModel):
     ai21labs_api_key: str
 
-    # pylint: disable=no-self-argument
     @validator("ai21labs_api_key", pre=True)
     def validate_ai21labs_api_key(cls, value):
         return _resolve_api_key_from_input(value)
@@ -78,7 +90,6 @@ class MosaicMLConfig(ConfigModel):
     mosaicml_api_key: str
     mosaicml_api_base: Optional[str] = None
 
-    # pylint: disable=no-self-argument
     @validator("mosaicml_api_key", pre=True)
     def validate_mosaicml_api_key(cls, value):
         return _resolve_api_key_from_input(value)
@@ -109,13 +120,14 @@ class OpenAIConfig(ConfigModel):
     openai_deployment_name: Optional[str] = None
     openai_organization: Optional[str] = None
 
-    # pylint: disable=no-self-argument
     @validator("openai_api_key", pre=True)
     def validate_openai_api_key(cls, value):
         return _resolve_api_key_from_input(value)
 
     @classmethod
-    def _validate_field_compatibility(cls, info: Dict[str, Any]):
+    def _validate_field_compatibility(cls, info: dict[str, Any]):
+        if not isinstance(info, dict):
+            return info
         api_type = (info.get("openai_api_type") or OpenAIAPIType.OPENAI).lower()
         if api_type == OpenAIAPIType.OPENAI:
             if info.get("openai_deployment_name") is not None:
@@ -146,25 +158,25 @@ class OpenAIConfig(ConfigModel):
 
         return info
 
-    if IS_PYDANTIC_V2:
+    if IS_PYDANTIC_V2_OR_NEWER:
         from pydantic import model_validator as _model_validator
 
         @_model_validator(mode="before")
-        def validate_field_compatibility(cls, info: Dict[str, Any]):
+        def validate_field_compatibility(cls, info: dict[str, Any]):
             return cls._validate_field_compatibility(info)
 
     else:
         from pydantic import root_validator as _root_validator
 
         @_root_validator(pre=False)
-        def validate_field_compatibility(cls, config: Dict[str, Any]):
+        def validate_field_compatibility(cls, config: dict[str, Any]):
             return cls._validate_field_compatibility(config)
 
 
 class AnthropicConfig(ConfigModel):
     anthropic_api_key: str
+    anthropic_version: str = "2023-06-01"
 
-    # pylint: disable=no-self-argument
     @validator("anthropic_api_key", pre=True)
     def validate_anthropic_api_key(cls, value):
         return _resolve_api_key_from_input(value)
@@ -173,7 +185,6 @@ class AnthropicConfig(ConfigModel):
 class PaLMConfig(ConfigModel):
     palm_api_key: str
 
-    # pylint: disable=no-self-argument
     @validator("palm_api_key", pre=True)
     def validate_palm_api_key(cls, value):
         return _resolve_api_key_from_input(value)
@@ -181,6 +192,10 @@ class PaLMConfig(ConfigModel):
 
 class MlflowModelServingConfig(ConfigModel):
     model_server_url: str
+
+    # Workaround to suppress warning that Pydantic raises when a field name starts with "model_".
+    # https://github.com/mlflow/mlflow/issues/10335
+    model_config = pydantic.ConfigDict(protected_namespaces=())
 
 
 class HuggingFaceTextGenerationInferenceConfig(ConfigModel):
@@ -202,22 +217,17 @@ class AWSIdAndKey(AWSBaseConfig):
     aws_session_token: Optional[str] = None
 
 
-class AWSBedrockConfig(ConfigModel):
+class AmazonBedrockConfig(ConfigModel):
     # order here is important, at least for pydantic<2
     aws_config: Union[AWSRole, AWSIdAndKey, AWSBaseConfig]
 
 
-config_types = {
-    Provider.COHERE: CohereConfig,
-    Provider.OPENAI: OpenAIConfig,
-    Provider.ANTHROPIC: AnthropicConfig,
-    Provider.AI21LABS: AI21LabsConfig,
-    Provider.MOSAICML: MosaicMLConfig,
-    Provider.BEDROCK: AWSBedrockConfig,
-    Provider.MLFLOW_MODEL_SERVING: MlflowModelServingConfig,
-    Provider.PALM: PaLMConfig,
-    Provider.HUGGINGFACE_TEXT_GENERATION_INFERENCE: HuggingFaceTextGenerationInferenceConfig,
-}
+class MistralConfig(ConfigModel):
+    mistral_api_key: str
+
+    @validator("mistral_api_key", pre=True)
+    def validate_mistral_api_key(cls, value):
+        return _resolve_api_key_from_input(value)
 
 
 class ModelInfo(ResponseModel):
@@ -261,44 +271,40 @@ def _resolve_api_key_from_input(api_key_input):
     return api_key_input
 
 
-# pylint: disable=no-self-argument
 class Model(ConfigModel):
     name: Optional[str] = None
     provider: Union[str, Provider]
-    config: Optional[
-        Union[
-            CohereConfig,
-            OpenAIConfig,
-            AI21LabsConfig,
-            AnthropicConfig,
-            AWSBedrockConfig,
-            MosaicMLConfig,
-            MlflowModelServingConfig,
-            HuggingFaceTextGenerationInferenceConfig,
-            PaLMConfig,
-        ]
-    ] = None
+    if IS_PYDANTIC_V2_OR_NEWER:
+        config: Optional[SerializeAsAny[ConfigModel]] = None
+    else:
+        config: Optional[ConfigModel] = None
 
     @validator("provider", pre=True)
     def validate_provider(cls, value):
+        from mlflow.gateway.provider_registry import provider_registry
+
         if isinstance(value, Provider):
             return value
         formatted_value = value.replace("-", "_").upper()
         if formatted_value in Provider.__members__:
             return Provider[formatted_value]
+        if value in provider_registry.keys():
+            return value
         raise MlflowException.invalid_parameter_value(f"The provider '{value}' is not supported.")
 
     @classmethod
     def _validate_config(cls, info, values):
+        from mlflow.gateway.provider_registry import provider_registry
+
         if provider := values.get("provider"):
-            config_type = config_types[provider]
+            config_type = provider_registry.get(provider).CONFIG_TYPE
             return config_type(**info)
 
         raise MlflowException.invalid_parameter_value(
             "A provider must be provided for each gateway route."
         )
 
-    if IS_PYDANTIC_V2:
+    if IS_PYDANTIC_V2_OR_NEWER:
 
         @validator("config", pre=True)
         def validate_config(cls, info, values):
@@ -311,11 +317,34 @@ class Model(ConfigModel):
             return cls._validate_config(config, values)
 
 
-# pylint: disable=no-self-argument
-class RouteConfig(ConfigModel):
+class AliasedConfigModel(ConfigModel):
+    """
+    Enables use of field aliases in a configuration model for backwards compatibility
+    """
+
+    if Version(pydantic.__version__) >= Version("2.0"):
+        model_config = ConfigDict(populate_by_name=True)
+    else:
+
+        class Config:
+            allow_population_by_field_name = True
+
+
+class Limit(LimitModel):
+    calls: int
+    key: Optional[str] = None
+    renewal_period: str
+
+
+class LimitsConfig(ConfigModel):
+    limits: Optional[list[Limit]] = []
+
+
+class RouteConfig(AliasedConfigModel):
     name: str
-    route_type: RouteType
+    route_type: RouteType = Field(alias="endpoint_type")
     model: Model
+    limit: Optional[Limit] = None
 
     @validator("name")
     def validate_endpoint_name(cls, route_name):
@@ -366,6 +395,23 @@ class RouteConfig(ConfigModel):
             return value
         raise MlflowException.invalid_parameter_value(f"The route_type '{value}' is not supported.")
 
+    @validator("limit", pre=True)
+    def validate_limit(cls, value):
+        from limits import parse
+
+        if value:
+            limit = Limit(**value)
+            try:
+                parse(f"{limit.calls}/{limit.renewal_period}")
+            except ValueError:
+                raise MlflowException.invalid_parameter_value(
+                    "Failed to parse the rate limit configuration."
+                    "Please make sure limit.calls is a positive number and"
+                    "limit.renewal_period is a right granularity"
+                )
+
+        return value
+
     def to_route(self) -> "Route":
         return Route(
             name=self.name,
@@ -375,6 +421,7 @@ class RouteConfig(ConfigModel):
                 provider=self.model.provider,
             ),
             route_url=f"{MLFLOW_GATEWAY_ROUTE_BASE}{self.name}{MLFLOW_QUERY_SUFFIX}",
+            limit=self.limit,
         )
 
 
@@ -385,38 +432,46 @@ class RouteModelInfo(ResponseModel):
     provider: str
 
 
-class Route(ResponseModel):
+_ROUTE_EXTRA_SCHEMA = {
+    "example": {
+        "name": "openai-completions",
+        "route_type": "llm/v1/completions",
+        "model": {
+            "name": "gpt-4o-mini",
+            "provider": "openai",
+        },
+        "route_url": "/gateway/routes/completions/invocations",
+    }
+}
+
+
+class Route(ConfigModel):
     name: str
     route_type: str
     model: RouteModelInfo
     route_url: str
+    limit: Optional[Limit] = None
 
     class Config:
-        schema_extra = {
-            "example": {
-                "name": "openai-completions",
-                "route_type": "llm/v1/completions",
-                "model": {
-                    "name": "gpt-3.5-turbo",
-                    "provider": "openai",
-                },
-                "route_url": "/gateway/routes/completions/invocations",
-            }
-        }
+        if IS_PYDANTIC_V2_OR_NEWER:
+            json_schema_extra = _ROUTE_EXTRA_SCHEMA
+        else:
+            schema_extra = _ROUTE_EXTRA_SCHEMA
+
+    def to_endpoint(self):
+        from mlflow.deployments.server.config import Endpoint
+
+        return Endpoint(
+            name=self.name,
+            endpoint_type=self.route_type,
+            model=self.model,
+            endpoint_url=self.route_url,
+            limit=self.limit,
+        )
 
 
-class Limit(LimitModel):
-    calls: int
-    key: Optional[str] = None
-    renewal_period: str
-
-
-class GatewayConfig(ConfigModel):
-    routes: List[RouteConfig]
-
-
-class LimitsConfig(ConfigModel):
-    limits: Optional[List[Limit]] = []
+class GatewayConfig(AliasedConfigModel):
+    routes: list[RouteConfig] = Field(alias="endpoints")
 
 
 def _load_route_config(path: Union[str, Path]) -> GatewayConfig:
@@ -432,6 +487,7 @@ def _load_route_config(path: Union[str, Path]) -> GatewayConfig:
         raise MlflowException.invalid_parameter_value(
             f"The file at {path} is not a valid yaml file"
         ) from e
+    check_configuration_deprecated_fields(configuration)
     check_configuration_route_name_collisions(configuration)
     try:
         return GatewayConfig(**configuration)

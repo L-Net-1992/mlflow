@@ -21,6 +21,7 @@ We can introduce this correlation by crafting a relationship between our feature
 The random elements of some of the factors will handle the unexplained variance portion.
 
 .. code-section::
+
     .. code-block:: python
 
         import pandas as pd
@@ -119,6 +120,17 @@ The random elements of some of the factors will handle the unexplained variance 
             df.drop(columns=["inflation_multiplier", "harvest_effect", "month"], inplace=True)
 
             return df
+
+Generate the data using the method we just prepared and save its result.
+
+.. code-section::
+
+    .. code-block:: python
+        :name: client
+
+        data = generate_apple_sales_data_with_promo_adjustment(base_demand=1_000, n_rows=1_000)
+
+        data[-20:]
 
 In the next section, we'll both use this generator for its output (the data set), and as an example
 for how to leverage MLflow Tracking as part of a prototyping phase for a project.

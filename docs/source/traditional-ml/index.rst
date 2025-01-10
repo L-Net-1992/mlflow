@@ -32,37 +32,37 @@ The officially supported integrations for traditional ML libraries include:
         <div class="logo-grid">
             <a href="../models.html#scikit-learn-sklearn">
                 <div class="logo-card">
-                    <img src="../_static/images/logos/scikit-learn-logo.svg" alt="scikit learn">
+                    <img src="../_static/images/logos/scikit-learn-logo.svg" alt="scikit learn"/>
                 </div>
             </a>
             <a href="../models.html#xgboost-xgboost">
                 <div class="logo-card">
-                    <img src="../_static/images/logos/xgboost-logo.svg" alt="XGBoost Logo">
+                    <img src="../_static/images/logos/xgboost-logo.svg" alt="XGBoost Logo"/>
                 </div>
             </a>
             <a href="../models.html#spark-mllib-spark">
                 <div class="logo-card">
-                    <img src="../_static/images/logos/spark-logo.svg" alt="Spark Logo">
+                    <img src="../_static/images/logos/spark-logo.svg" alt="Spark Logo"/>
                 </div>
             </a>
             <a href="../models.html#lightgbm-lightgbm">
                 <div class="logo-card">
-                    <img src="../_static/images/logos/lightgbm-logo.png" alt="LightGBM Logo">
+                    <img src="../_static/images/logos/lightgbm-logo.png" alt="LightGBM Logo"/>
                 </div>
             </a>
             <a href="../models.html#catboost-catboost">
                 <div class="logo-card">
-                    <img src="../_static/images/logos/catboost-logo.png" alt="CatBoost Logo">
+                    <img src="../_static/images/logos/catboost-logo.png" alt="CatBoost Logo"/>
                 </div>
             </a>
             <a href="../models.html#statsmodels-statsmodels">
                 <div class="logo-card">
-                    <img src="../_static/images/logos/statsmodels-logo.svg" alt="Statsmodels Logo">
+                    <img src="../_static/images/logos/statsmodels-logo.svg" alt="Statsmodels Logo"/>
                 </div>
             </a>
             <a href="../models.html#prophet-prophet">
                 <div class="logo-card">
-                    <img src="../_static/images/logos/prophet-logo.png" alt="Prophet Logo">
+                    <img src="../_static/images/logos/prophet-logo.png" alt="Prophet Logo"/>
                 </div>
             </a>
         </div>
@@ -99,6 +99,18 @@ Tutorials and Guides
                     </p>
                 </a>
             </div>
+            <div class="simple-card">
+                <a href="serving-multiple-models-with-pyfunc/index.html">
+                    <div class="header">
+                        Multi-Model Endpoints with PyFunc
+                    </div>
+                    <p>
+                        Dive deep into custom multi-model inference via MLflow's custom PyFunc models. Learn how to
+                        simplify low-latency inference by passing additional inference parameters to a simple custom PyFunc implementation. 
+                        This tutorial can serve as a jumping off point for many multi-model endpoint (MME) use cases!
+                    </p>
+                </a>
+            </div>
         </article>
     </section>
 
@@ -109,6 +121,7 @@ Tutorials and Guides
 
     hyperparameter-tuning-with-child-runs/index
     creating-custom-pyfunc/index
+    serving-multiple-models-with-pyfunc/index
 
 MLflow Tracking
 ---------------
@@ -154,5 +167,3 @@ MLflow simplifies the transition from development to production:
 - **Consistency**: By meticulously recording dependencies and the computational environment, MLflow ensures that models behave consistently across different deployment setups.
 - **Docker Support**: Facilitate deployment in containerized environments using Docker, encapsulating all dependencies and ensuring a uniform runtime environment.
 - **Scalability**: MLflow is designed to accommodate both small-scale deployments and large, distributed setups, ensuring that it scales with your needs.
-
-
